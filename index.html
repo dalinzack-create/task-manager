@@ -14,6 +14,301 @@
                 extend: {
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            950: '#0f172a', // Deep dark blue/slate
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            /* Prevent horizontal scroll on mobile */
+            overflow-x: hidden; 
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .task-enter {
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .task-list-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .task-list-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .task-list-scroll::-webkit-scrollbar-thumb {
+            background-color: #94a3b8;
+            border-radius: 20px;
+        }
+        .dark .task-list-scroll::-webkit-scrollbar-thumb {
+            background-color: #475569;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 dark:bg-slate-950 min-h-screen flex items-center justify-center p-4 sm:p-8 text-slate-800 dark:text-slate-100 transition-colors duration-300">
+    
+    <!-- Main Card Container -->
+    <main class="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl shadow-indigo-100/50 dark:shadow-none p-6 sm:p-10 w-full max-w-md border border-white dark:border-slate-800 transition-colors duration-300 relative">
+        
+        <!-- Gear / Theme Toggle -->
+        <button id="themeToggle" class="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-300 focus:outline-none hover:rotate-90">
+            <i class="fas fa-cog text-lg"></i>
+        </button>
+
+        <!-- Header -->
+        <header class="mb-8 text-center mt-4">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50 mb-4 transform -rotate-6 transition-colors duration-300">
+                <i class="fas fa-check-double text-xl transform rotate-6"></i>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Task Manager</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Organize your day, achieve your goals.</p>
+        </header>
+
+        <!-- Add Task Input Area -->
+        <div class="flex gap-3 mb-8 relative group">
+            <input type="text" id="taskInput" placeholder="Buy Milk" 
+                class="flex-1 px-5 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/20 dark:focus:ring-indigo-500/40 focus:border-indigo-500 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all duration-300 text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 font-medium">
+            
+            <button id="addBtn" 
+                class="bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-500 text-white px-6 py-4 rounded-2xl font-semibold shadow-md shadow-indigo-200 dark:shadow-none hover:shadow-xl hover:shadow-indigo-900/50 transition-all duration-300 flex items-center justify-center gap-2 transform active:scale-95">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+
+        <!-- Task List Container -->
+        <div class="task-list-scroll max-h-[55vh] overflow-y-auto pr-2 -mr-2">
+            <ul id="taskList" class="space-y-3">
+                <!-- Tasks will be injected here by JavaScript -->
+            </ul>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden flex flex-col items-center justify-center py-10 opacity-70">
+            <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4 transition-colors duration-300">
+                <i class="fas fa-wind text-2xl text-slate-400 dark:text-slate-500"></i>
+            </div>
+            <p class="text-slate-600 dark:text-slate-400 text-sm font-medium">Your list is a blank canvas.</p>
+            <p class="text-slate-500 dark:text-slate-500 text-xs mt-1">Add a task above to get started.</p>
+        </div>
+
+    </main>
+
+    <script>
+        // DOM Elements
+        const taskInput = document.getElementById('taskInput');
+        const addBtn = document.getElementById('addBtn');
+        const taskList = document.getElementById('taskList');
+        const emptyState = document.getElementById('emptyState');
+        const themeToggle = document.getElementById('themeToggle');
+        const htmlElement = document.documentElement;
+
+        // --- Theme Management ---
+        const initTheme = () => {
+            const savedTheme = localStorage.getItem('task_manager_theme');
+            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                htmlElement.classList.add('dark');
+            } else {
+                htmlElement.classList.remove('dark');
+            }
+        };
+
+        themeToggle.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            const isDark = htmlElement.classList.contains('dark');
+            localStorage.setItem('task_manager_theme', isDark ? 'dark' : 'light');
+        });
+
+        initTheme(); // Run on load
+
+        // --- LocalStorage Task Management ---
+        let tasks = [];
+
+        // Load tasks from LocalStorage
+        function loadTasks() {
+            const savedTasks = localStorage.getItem('task_manager_data');
+            if (savedTasks) {
+                try {
+                    tasks = JSON.parse(savedTasks);
+                } catch (e) {
+                    console.error("Error parsing tasks", e);
+                    tasks = [];
+                }
+            }
+            renderTasks();
+        }
+
+        // Save tasks to LocalStorage
+        function saveTasks() {
+            localStorage.setItem('task_manager_data', JSON.stringify(tasks));
+            renderTasks();
+        }
+
+        // --- UI Rendering ---
+        const escapeHTML = (str) => {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        };
+
+        const renderTasks = () => {
+            taskList.innerHTML = '';
+            
+            if (tasks.length === 0) {
+                emptyState.classList.remove('hidden');
+                taskList.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                taskList.classList.remove('hidden');
+                
+                // Sort tasks: newest first
+                const sortedTasks = [...tasks].sort((a, b) => b.createdAt - a.createdAt);
+                
+                sortedTasks.forEach(task => {
+                    const li = document.createElement('li');
+                    
+                    const baseClasses = "task-enter flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group";
+                    const activeClasses = task.completed 
+                        ? "bg-slate-50 dark:bg-slate-800/50 border-transparent" 
+                        : "bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm hover:border-indigo-200 dark:hover:border-indigo-500/50 hover:shadow-md dark:shadow-none";
+                    
+                    li.className = `${baseClasses} ${activeClasses}`;
+                    
+                    li.innerHTML = `
+                        <div class="flex items-center gap-4 overflow-hidden flex-1 cursor-pointer toggle-btn">
+                            <div class="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                                task.completed 
+                                ? 'bg-emerald-500 border-emerald-500 text-white scale-110' 
+                                : 'border-slate-300 dark:border-slate-600 text-transparent group-hover:border-indigo-400 dark:group-hover:border-indigo-400'
+                            }">
+                                <i class="fas fa-check text-xs"></i>
+                            </div>
+                            <span class="text-base truncate transition-all duration-300 select-none ${
+                                task.completed 
+                                ? 'text-slate-400 dark:text-slate-500 line-through decoration-slate-300 dark:decoration-slate-600' 
+                                : 'text-slate-700 dark:text-slate-200 font-medium'
+                            }">
+                                ${escapeHTML(task.text)}
+                            </span>
+                        </div>
+                        <button class="delete-btn text-slate-300 dark:text-slate-600 hover:text-rose-500 dark:hover:text-rose-400 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 p-2 ml-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/30 focus:opacity-100 transform hover:scale-110 outline-none">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    `;
+
+                    // Attach event listeners
+                    li.querySelector('.toggle-btn').addEventListener('click', () => handleToggle(task.id));
+                    li.querySelector('.delete-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        handleDelete(task.id, li);
+                    });
+
+                    taskList.appendChild(li);
+                });
+            }
+        };
+
+        // --- Actions ---
+        function handleAdd() {
+            const text = taskInput.value.trim();
+            if (text) {
+                const newTask = {
+                    id: Date.now().toString(), // Unique ID based on timestamp
+                    text: text,
+                    completed: false,
+                    createdAt: Date.now()
+                };
+                
+                tasks.push(newTask);
+                saveTasks(); // Saves to LocalStorage and triggers re-render
+                taskInput.value = ''; // Clear input
+            }
+        }
+
+        function handleToggle(taskId) {
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex > -1) {
+                tasks[taskIndex].completed = !tasks[taskIndex].completed;
+                saveTasks();
+            }
+        }
+
+        function handleDelete(taskId, listElement) {
+            // Visual feedback before deletion
+            listElement.style.opacity = '0';
+            listElement.style.transform = 'scale(0.95)';
+            
+            // Wait a brief moment for the animation to play before removing data
+            setTimeout(() => {
+                tasks = tasks.filter(t => t.id !== taskId);
+                saveTasks();
+            }, 200);
+        }
+
+        // Event Listeners for input
+        addBtn.addEventListener('click', handleAdd);
+        
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAdd();
+            }
+        });
+
+        // Initialize application
+        loadTasks();
+
+        // Auto focus input field on desktop load
+        if (window.innerWidth > 768) {
+            taskInput.focus();
+        }
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
                     }
                 }
             }
