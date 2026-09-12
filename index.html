@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            /* Prevent horizontal scroll on mobile */
+            overflow-x: hidden; 
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .task-enter {
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .task-list-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .task-list-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .task-list-scroll::-webkit-scrollbar-thumb {
+            background-color: #94a3b8; /* slate-400 */
+            border-radius: 20px;
+        }
+        .dark .task-list-scroll::-webkit-scrollbar-thumb {
+            background-color: #475569; /* slate-600 */
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 dark:bg-slate-900 min-h-screen flex items-center justify-center p-4 sm:p-8 text-slate-800 dark:text-slate-100 transition-colors duration-300">
+    
+    <!-- Main Card Container -->
+    <main class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl shadow-indigo-100/50 dark:shadow-none p-6 sm:p-10 w-full max-w-md border border-white dark:border-slate-700 transition-colors duration-300 relative">
+        
+        <!-- Dark Mode Toggle -->
+        <button id="themeToggle" class="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all duration-300 focus:outline-none">
+            <i class="fas fa-moon dark:hidden text-lg"></i>
+            <i class="fas fa-sun hidden dark:block text-lg"></i>
+        </button>
+
+        <!-- Header -->
+        <header class="mb-8 text-center mt-4">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50 mb-4 transform -rotate-6 transition-colors duration-300">
+                <i class="fas fa-check-double text-xl transform rotate-6"></i>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Task Manager</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Organize your day, achieve your goals.</p>
+        </header>
+
+        <!-- Add Task Input Area -->
+        <div class="flex gap-3 mb-8 relative group">
+            <input type="text" id="taskInput" placeholder="What needs to be done?" 
+                class="flex-1 px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/20 dark:focus:ring-indigo-500/40 focus:border-indigo-500 dark:focus:border-indigo-400 focus:bg-white dark:focus:bg-slate-800 transition-all duration-300 text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 font-medium">
+            
+            <button id="addBtn" 
+                class="bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white px-6 py-4 rounded-2xl font-semibold shadow-md shadow-indigo-200 dark:shadow-none hover:shadow-xl hover:shadow-indigo-300 transition-all duration-300 flex items-center justify-center gap-2 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+
+        <!-- Task List Container -->
+        <div class="task-list-scroll max-h-[55vh] overflow-y-auto pr-2 -mr-2">
+            <div id="loadingState" class="flex justify-center py-8">
+                <i class="fas fa-spinner fa-spin text-indigo-500 text-2xl"></i>
+            </div>
+            <ul id="taskList" class="space-y-3 hidden">
+                <!-- Tasks will be injected here by JavaScript -->
+            </ul>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden flex flex-col items-center justify-center py-10 opacity-70">
+            <div class="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4 transition-colors duration-300">
+                <i class="fas fa-wind text-3xl text-slate-300 dark:text-slate-500"></i>
+            </div>
+            <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Your list is a blank canvas.</p>
+            <p class="text-slate-400 dark:text-slate-500 text-xs mt-1">Add a task above to get started.</p>
+        </div>
+
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // DOM Elements
+        const taskInput = document.getElementById('taskInput');
+        const addBtn = document.getElementById('addBtn');
+        const taskList = document.getElementById('taskList');
+        const emptyState = document.getElementById('emptyState');
+        const loadingState = document.getElementById('loadingState');
+        const themeToggle = document.getElementById('themeToggle');
+        const htmlElement = document.documentElement;
+
+        // --- Theme Management ---
+        const initTheme = () => {
+            const savedTheme = localStorage.getItem('task_manager_theme');
+            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                htmlElement.classList.add('dark');
+            } else {
+                htmlElement.classList.remove('dark');
+            }
+        };
+
+        themeToggle.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            const isDark = htmlElement.classList.contains('dark');
+            localStorage.setItem('task_manager_theme', isDark ? 'dark' : 'light');
+        });
+
+        initTheme(); // Run on load
+
+        // --- Firebase Configuration & Auth ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'task-manager-app';
+        let firebaseConfig = {};
+        
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        } catch (e) {
+            console.error("Error parsing Firebase config", e);
+        }
+
+        let app, db, auth, currentUser = null;
+        let tasks = [];
+
+        // Check if we have a valid config before initializing to prevent unhandled errors
+        if (Object.keys(firebaseConfig).length > 0) {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            initApp();
+        } else {
+            console.warn("Firebase configuration missing. Running in UI-only mode.");
+            loadingState.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            addBtn.disabled = true;
+        }
+
+        async function initApp() {
+            try {
+                // Rule 3: Always authenticate BEFORE database operations
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                currentUser = auth.currentUser;
+                setupRealtimeListener();
+            } catch (error) {
+                console.error("Authentication failed:", error);
+                loadingState.innerHTML = `<span class="text-rose-500 text-sm">Failed to connect.</span>`;
+            }
+        }
+
+        function setupRealtimeListener() {
+            if (!currentUser) return;
+            
+            // Rule 1: Strict Paths - Private data
+            const tasksRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks');
+            
+            // Rule 2: Fetch all, no complex queries, sort in memory
+            onSnapshot(tasksRef, (snapshot) => {
+                tasks = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                // Sort tasks by creation time descending (newest first)
+                tasks.sort((a, b) => b.createdAt - a.createdAt);
+                
+                renderTasks();
+                
+                // Hide loading state once data is loaded
+                loadingState.classList.add('hidden');
+                taskList.classList.remove('hidden');
+            }, (error) => {
+                console.error("Snapshot error:", error);
+            });
+        }
+
+        // --- UI Rendering ---
+        const escapeHTML = (str) => {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        };
+
+        const renderTasks = () => {
+            taskList.innerHTML = '';
+            
+            if (tasks.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                
+                tasks.forEach(task => {
+                    const li = document.createElement('li');
+                    
+                    const baseClasses = "task-enter flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group";
+                    const activeClasses = task.completed 
+                        ? "bg-slate-50 dark:bg-slate-800/50 border-transparent" 
+                        : "bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm hover:border-indigo-200 dark:hover:border-indigo-500/50 hover:shadow-md dark:shadow-none";
+                    
+                    li.className = `${baseClasses} ${activeClasses}`;
+                    
+                    li.innerHTML = `
+                        <div class="flex items-center gap-4 overflow-hidden flex-1 cursor-pointer toggle-btn">
+                            <div class="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                                task.completed 
+                                ? 'bg-emerald-500 border-emerald-500 text-white scale-110' 
+                                : 'border-slate-300 dark:border-slate-500 text-transparent group-hover:border-indigo-400 dark:group-hover:border-indigo-400'
+                            }">
+                                <i class="fas fa-check text-xs"></i>
+                            </div>
+                            <span class="text-base truncate transition-all duration-300 select-none ${
+                                task.completed 
+                                ? 'text-slate-400 dark:text-slate-500 line-through decoration-slate-300 dark:decoration-slate-600' 
+                                : 'text-slate-700 dark:text-slate-200 font-medium'
+                            }">
+                                ${escapeHTML(task.text)}
+                            </span>
+                        </div>
+                        <button class="delete-btn text-slate-300 dark:text-slate-600 hover:text-rose-500 dark:hover:text-rose-400 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 p-2 ml-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-900/30 focus:opacity-100 transform hover:scale-110 outline-none">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    `;
+
+                    // Attach event listeners safely within the module
+                    li.querySelector('.toggle-btn').addEventListener('click', () => handleToggle(task.id, task.completed));
+                    li.querySelector('.delete-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        handleDelete(task.id, li);
+                    });
+
+                    taskList.appendChild(li);
+                });
+            }
+        };
+
+        // --- Actions ---
+        async function handleAdd() {
+            if (!currentUser) return;
+            
+            const text = taskInput.value.trim();
+            if (text) {
+                // Optimistic UI clear
+                taskInput.value = '';
+                
+                try {
+                    const tasksRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks');
+                    await addDoc(tasksRef, {
+                        text: text,
+                        completed: false,
+                        createdAt: Date.now()
+                    });
+                } catch (error) {
+                    console.error("Error adding task:", error);
+                    // Minimal error recovery: put text back
+                    taskInput.value = text;
+                }
+            }
+        }
+
+        async function handleToggle(taskId, currentStatus) {
+            if (!currentUser) return;
+            try {
+                const taskDoc = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks', taskId);
+                await updateDoc(taskDoc, {
+                    completed: !currentStatus
+                });
+            } catch (error) {
+                console.error("Error updating task:", error);
+            }
+        }
+
+        async function handleDelete(taskId, listElement) {
+            if (!currentUser) return;
+            
+            // Visual feedback before database deletion
+            listElement.style.opacity = '0';
+            listElement.style.transform = 'scale(0.95)';
+            
+            try {
+                const taskDoc = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks', taskId);
+                await deleteDoc(taskDoc);
+            } catch (error) {
+                console.error("Error deleting task:", error);
+                // Revert visual change on error
+                listElement.style.opacity = '1';
+                listElement.style.transform = 'scale(1)';
+            }
+        }
+
+        // Event Listeners for inputs
+        addBtn.addEventListener('click', handleAdd);
+        
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAdd();
+            }
+        });
+
+        // Auto focus input field on desktop load
+        if (window.innerWidth > 768) {
+            taskInput.focus();
+        }
+    </script>
+</body>
+</html>
